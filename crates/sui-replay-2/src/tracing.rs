@@ -37,7 +37,7 @@ pub fn save_trace_output(
 
     // TODO: have this use the artifact manager as well.
     let bcode_dir = artifact_manager.base_path.join(BCODE_DIR);
-    fs::create_dir(&bcode_dir).context(format!(
+    fs::create_dir_all(&bcode_dir).context(format!(
         "Failed to create bytecode output directory '{:?}'",
         bcode_dir,
     ))?;
@@ -70,7 +70,8 @@ pub fn save_trace_output(
     for pkg in pkgs {
         let pkg_addr = format!("{:?}", pkg.id());
         let bcode_pkg_dir = bcode_dir.join(&pkg_addr);
-        fs::create_dir(&bcode_pkg_dir).context("Failed to create bytecode package directory")?;
+        fs::create_dir_all(&bcode_pkg_dir)
+            .context("Failed to create bytecode package directory")?;
         for (mod_name, serialized_mod) in pkg.serialized_module_map() {
             let compiled_mod =
                 CompiledModule::deserialize_with_defaults(serialized_mod).context(format!(
@@ -112,7 +113,7 @@ pub fn save_trace_output(
     // create empty sources directory as a known placeholder for the users
     // to put optional source files there
     let src_dir = artifact_manager.base_path.join(SOURCE_DIR);
-    fs::create_dir(&src_dir).context(format!(
+    fs::create_dir_all(&src_dir).context(format!(
         "Failed to create source output directory '{:?}'",
         src_dir,
     ))?;

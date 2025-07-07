@@ -30,15 +30,16 @@ fn main() -> anyhow::Result<()> {
             handle_build_command(build_config)?;
         }
         None => {
-            // Default to replay behavior when no subcommand is specified
-            let tx_digest = config.replay.digest.clone();
-            let show_effects = config.replay.show_effects;
+            let output_root = handle_replay_config(&config.replay, VERSION)?;
 
-            let output_root = handle_replay_config(config.replay, VERSION)?;
+            // Default to replay behavior when no subcommand is specified
+            let tx_digest = config.replay.digest;
+            let show_effects = config.replay.show_effects;
+            let overrite_existing = config.replay.overwrite_existing;
 
             if let Some(digest) = tx_digest {
                 let output_dir = output_root.join(&digest);
-                let manager = ArtifactManager::new(&output_dir, false)?;
+                let manager = ArtifactManager::new(&output_dir, overrite_existing)?;
                 if manager.member(Artifact::ForkedTransactionEffects).exists() {
                     println!("*** Transaction {digest} forked");
                     let forked_effects = manager

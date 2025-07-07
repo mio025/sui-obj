@@ -75,6 +75,10 @@ pub struct ReplayConfig {
     /// Show transaction effects.
     #[arg(long, short, default_value = "false")]
     pub show_effects: bool,
+    /// Whether existing artifacts that were generated from a previous replay of the transaction
+    /// should be overwritten or an error raised if they already exist.
+    #[arg(long, default_value = "false")]
+    pub overwrite_existing: bool,
 }
 
 /// Enum around rpc gql endpoints.
@@ -112,7 +116,7 @@ impl FromStr for Node {
     }
 }
 
-pub fn handle_replay_config(config: ReplayConfig, version: &str) -> anyhow::Result<PathBuf> {
+pub fn handle_replay_config(config: &ReplayConfig, version: &str) -> anyhow::Result<PathBuf> {
     let ReplayConfig {
         node,
         digest,
@@ -121,10 +125,11 @@ pub fn handle_replay_config(config: ReplayConfig, version: &str) -> anyhow::Resu
         mut terminate_early,
         output_dir,
         show_effects: _,
+        overwrite_existing,
     } = config;
 
     let output_root_dir = if let Some(dir) = output_dir {
-        dir
+        dir.to_path_buf()
     } else {
         // Default output directory is `<cur_dir>/.replay/<digest>`
         let current_dir =
@@ -150,7 +155,7 @@ pub fn handle_replay_config(config: ReplayConfig, version: &str) -> anyhow::Resu
         // terminate early if a single digest is provided this way we get proper error messages from
         terminate_early = true;
         // single digest provided
-        vec![tx_digest]
+        vec![tx_digest.clone()]
     } else {
         bail!("either --digest or --digests-path must be provided");
     };
@@ -158,14 +163,15 @@ pub fn handle_replay_config(config: ReplayConfig, version: &str) -> anyhow::Resu
     ::tracing::debug!("Binary version: {version}");
 
     // `DataStore` implements `TransactionStore`, `EpochStore` and `ObjectStore`
-    let data_store = DataStore::new(node, version)
+    let data_store = DataStore::new(node.clone(), version)
         .map_err(|e| anyhow!("Failed to create data store: {:?}", e))?;
 
     // load and replay transactions
     for tx_digest in digests {
         let tx_dir = output_root_dir.join(&tx_digest);
-        let artifact_manager = ArtifactManager::new(&tx_dir, true /* overrides_allowed */)?;
-        match replay_transaction(&artifact_manager, &tx_digest, &data_store, trace) {
+        let artifact_manager =
+            ArtifactManager::new(&tx_dir, *overwrite_existing /* overrides_allowed */)?;
+        match replay_transaction(&artifact_manager, &tx_digest, &data_store, *trace) {
             Err(e) if terminate_early => {
                 ::tracing::error!("Error while replaying transaction {}: {:?}", tx_digest, e);
                 bail!("Replay terminated due to error: {}", e);

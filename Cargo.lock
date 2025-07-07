@@ -13160,7 +13160,6 @@ dependencies = [
  "sui-package-management",
  "sui-protocol-config",
  "sui-replay",
- "sui-replay-2",
  "sui-sdk",
  "sui-simulator",
  "sui-source-validation",
