@@ -1,14 +1,19 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::artifacts::ArtifactManager;
+use crate::artifacts::{Artifact, ArtifactManager};
 use crate::build::BuildCmdConfig;
 use crate::data_store::DataStore;
+use crate::displays::Pretty;
 use crate::replay_txn::replay_transaction;
 use anyhow::{anyhow, bail};
 use clap::{Parser, Subcommand};
-use std::path::PathBuf;
+use similar::{ChangeTag, TextDiff};
+use std::io::Write;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
+use sui_json_rpc_types::SuiTransactionBlockEffects;
+use sui_types::effects::TransactionEffects;
 use sui_types::supported_protocol_versions::Chain;
 
 pub mod artifacts;
@@ -63,7 +68,8 @@ pub struct ReplayConfig {
     /// RPC of the fullnode used to replay the transaction.
     #[arg(long, short, default_value = "mainnet")]
     pub node: Node,
-    /// Provide a directory to collect tracing. Or defaults to `<cur_dir>/.replay/<digest>`
+    /// Whether to trace the transaction execution. Generated traces will be saved in the output
+    /// directory (or `<cur_dir>/.replay/<digest>` if none provided).
     #[arg(long = "trace", default_value = "false")]
     pub trace: bool,
     /// Terminate a batch replay early if an error occurs when replaying one of the transactions.
@@ -186,4 +192,82 @@ pub fn handle_replay_config(config: &ReplayConfig, version: &str) -> anyhow::Res
     }
 
     Ok(output_root_dir)
+}
+
+pub fn print_effects_or_fork<W: Write>(
+    digest: &str,
+    output_root: &Path,
+    show_effects: bool,
+    w: &mut W,
+) -> anyhow::Result<()> {
+    let output_dir = output_root.join(&digest);
+    let manager = ArtifactManager::new(&output_dir, false)?;
+    if manager.member(Artifact::ForkedTransactionEffects).exists() {
+        writeln!(w, "*** Transaction {digest} forked")?;
+        let forked_effects = manager
+            .member(Artifact::ForkedTransactionEffects)
+            .try_get_transaction_effects()
+            .transpose()?
+            .unwrap();
+        let expected_effects = manager
+            .member(Artifact::TransactionEffects)
+            .try_get_transaction_effects()
+            .transpose()?
+            .unwrap();
+        writeln!(
+            w,
+            "*** Forked Transaction Effects for {digest}\n{}",
+            diff_effects(&expected_effects, &forked_effects)
+        )?;
+    } else if show_effects {
+        let tx_effects = manager
+            .member(Artifact::TransactionEffects)
+            .try_get_transaction_effects()
+            .transpose()?
+            .unwrap();
+        writeln!(
+            w,
+            "*** Transaction Effects for {digest}\n{}",
+            SuiTransactionBlockEffects::try_from(tx_effects.clone())
+                .map_err(|e| anyhow::anyhow!("Failed to convert effects: {e}"))?
+        )?;
+        manager
+            .member(Artifact::TransactionGasReport)
+            .try_get_gas_report()
+            .transpose()?
+            .map(|report| {
+                writeln!(
+                    w,
+                    "*** Transaction Gas Report for {digest}\n{}",
+                    Pretty(&report)
+                )
+                .unwrap()
+            })
+            .unwrap_or_else(|| {
+                writeln!(w, "*** No gas report available for transaction {digest}").unwrap();
+            });
+    }
+    Ok(())
+}
+
+/// Utility to diff `TransactionEffect` in a human readable format
+pub fn diff_effects(
+    expected_effect: &TransactionEffects,
+    txn_effects: &TransactionEffects,
+) -> String {
+    let expected = format!("{:#?}", expected_effect);
+    let result = format!("{:#?}", txn_effects);
+    let mut res = vec![];
+
+    let diff = TextDiff::from_lines(&expected, &result);
+    for change in diff.iter_all_changes() {
+        let sign = match change.tag() {
+            ChangeTag::Delete => "---",
+            ChangeTag::Insert => "+++",
+            ChangeTag::Equal => "   ",
+        };
+        res.push(format!("{}{}", sign, change));
+    }
+
+    res.join("")
 }
