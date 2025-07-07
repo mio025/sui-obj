@@ -3,6 +3,7 @@
 
 use std::{
     collections::HashMap,
+    hash::{Hash, Hasher},
     num::NonZeroUsize,
     sync::{Arc, Weak},
     time::Duration,
@@ -14,7 +15,8 @@ use crate::consensus_adapter::SubmitToConsensus;
 use governor::{clock::MonotonicClock, Quota, RateLimiter};
 use itertools::Itertools;
 use lru::LruCache;
-use mysten_common::{assert_reachable, debug_fatal};
+use mysten_common::{assert_reachable, debug_fatal, in_test_configuration};
+use rand::{random, rngs, Rng, SeedableRng};
 use mysten_metrics::{monitored_scope, spawn_monitored_task};
 use simple_moving_average::{SingleSumSMA, SMA};
 use sui_config::node::ExecutionTimeObserverConfig;
@@ -667,16 +669,43 @@ impl ExecutionTimeEstimator {
             .iter()
             .map(|command| {
                 let key = ExecutionTimeObservationKey::from_command(command);
-                self.consensus_observations
+                
+                if in_test_configuration() {
+                    self.get_test_duration(&key)
+                } else {
+                    self.consensus_observations
                     .get(&key)
                     .and_then(|obs| obs.stake_weighted_median)
                     .unwrap_or_else(|| key.default_duration())
                     // For native commands, adjust duration by length of command's inputs/outputs.
                     // This is sort of arbitrary, but hopefully works okay as a heuristic.
                     .mul_f64(command_length(command).get() as f64)
+                }
             })
             .sum::<Duration>()
             .min(Duration::from_micros(self.protocol_params.max_estimate_us))
+    }
+
+    // Simulate duration in tests to trigger occational 
+    // congestion control & defer/cancel some transactions
+    fn get_test_duration(&self, key: &ExecutionTimeObservationKey) -> Duration {
+        if !in_test_configuration() {
+            panic!("get_test_duration called in non-test configuration");
+        }
+
+        thread_local! {
+            static PER_TEST_SEED: u64 = random::<u64>();
+        }
+        PER_TEST_SEED.with(|seed| {
+            let mut hasher = std::collections::hash_map::DefaultHasher::new();
+            seed.hash(&mut hasher);
+            key.hash(&mut hasher); // Use command key for variation
+            let seed_value = hasher.finish();
+            let mut rng = rngs::StdRng::seed_from_u64(seed_value);
+            let mut test_duration = rng.gen_range(Duration::from_millis(200)..Duration::from_millis(400));
+            test_duration += rng.gen_range(Duration::from_micros(0)..Duration::from_micros(1000));
+            test_duration
+        })
     }
 
     pub fn take_observations(&mut self) -> StoredExecutionTimeObservations {
