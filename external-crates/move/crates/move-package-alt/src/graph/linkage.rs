@@ -180,8 +180,8 @@ mod tests {
     #[test]
     fn test_incompatible() {
         let scenario = TestPackageGraph::new(["root", "a", "b", "c"])
-            .add_node("d1", |d1| d1.original_id(1).published_at(1))
-            .add_node("d2", |d2| d2.original_id(1).published_at(2))
+            .add_package("d1", |d1| d1.original_id(1).published_at(1))
+            .add_package("d2", |d2| d2.original_id(1).published_at(2))
             .add_deps([
                 ("root", "a"),
                 ("a", "b"),
@@ -202,8 +202,8 @@ mod tests {
     #[test]
     fn test_compatible() {
         let scenario = TestPackageGraph::new(["root", "a", "b", "c"])
-            .add_node("d1", |d1| d1.original_id(1).published_at(1))
-            .add_node("d2", |d2| d2.original_id(1).published_at(1))
+            .add_package("d1", |d1| d1.original_id(1).published_at(1))
+            .add_package("d2", |d2| d2.original_id(1).published_at(1))
             .add_deps([
                 ("root", "a"),
                 ("a", "b"),
@@ -223,9 +223,9 @@ mod tests {
     #[test]
     fn test_override() {
         let scenario = TestPackageGraph::new(["root", "a", "b", "c"])
-            .add_node("d1", |d1| d1.original_id(1).published_at(1))
-            .add_node("d2", |d2| d2.original_id(1).published_at(2))
-            .add_node("d3", |d3| d3.original_id(1).published_at(3))
+            .add_package("d1", |d1| d1.original_id(1).published_at(1))
+            .add_package("d2", |d2| d2.original_id(1).published_at(2))
+            .add_package("d3", |d3| d3.original_id(1).published_at(3))
             .add_deps([
                 ("root", "a"),
                 ("a", "b"),
@@ -246,9 +246,9 @@ mod tests {
     #[test]
     fn test_nooverride() {
         let scenario = TestPackageGraph::new(["root", "a", "b", "c"])
-            .add_node("d1", |d1| d1.original_id(1).published_at(1))
-            .add_node("d2", |d2| d2.original_id(1).published_at(2))
-            .add_node("d3", |d3| d3.original_id(1).published_at(3))
+            .add_package("d1", |d1| d1.original_id(1).published_at(1))
+            .add_package("d2", |d2| d2.original_id(1).published_at(2))
+            .add_package("d3", |d3| d3.original_id(1).published_at(3))
             .add_deps([
                 ("root", "a"),
                 ("a", "b"),
@@ -268,8 +268,8 @@ mod tests {
     #[test]
     fn test_direct_nooverride() {
         let scenario = TestPackageGraph::new(["root", "a", "b"])
-            .add_node("d1", |d1| d1.original_id(1).published_at(1))
-            .add_node("d2", |d2| d2.original_id(1).published_at(2))
+            .add_package("d1", |d1| d1.original_id(1).published_at(1))
+            .add_package("d2", |d2| d2.original_id(1).published_at(2))
             .add_deps([("root", "a"), ("a", "b"), ("a", "d1"), ("b", "d2")])
             .build();
 

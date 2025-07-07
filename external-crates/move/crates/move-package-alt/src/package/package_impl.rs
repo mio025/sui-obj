@@ -121,12 +121,18 @@ impl<F: MoveFlavor> Package<F> {
         &self.source
     }
 
+    /// The published-at address for this package in environment `env`, if it is published
     pub fn published_at(&self, env: &EnvironmentName) -> Option<PublishedID> {
-        todo!()
+        self.publish_data
+            .get(env)
+            .map(|it| it.publication.published_at.clone())
     }
 
+    /// The original ID for this package in environment `env`, if it is published
     pub fn original_id(&self, env: &EnvironmentName) -> Option<OriginalID> {
-        todo!()
+        self.publish_data
+            .get(env)
+            .map(|it| it.publication.original_id.clone())
     }
 
     /// The resolved and pinned dependencies from the manifest for environment `env`
