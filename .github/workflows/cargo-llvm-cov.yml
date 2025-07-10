@@ -1,7 +1,5 @@
 name: Code Coverage
-on:
-  schedule:
-    - cron: '0 9 * * *' # UTC timing is every day at 1am PST
+on:  
   workflow_dispatch:
     inputs:
       sui_repo_ref:
