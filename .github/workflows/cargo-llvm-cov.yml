@@ -1,7 +1,5 @@
 name: Code Coverage
-on:  
-  workflow_dispatch:
-
+on:  [push]
 env:
   CARGO_TERM_COLOR: always
   # Disable incremental compilation.
