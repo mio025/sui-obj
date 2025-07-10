@@ -1,12 +1,6 @@
 name: Code Coverage
 on:  
   workflow_dispatch:
-    inputs:
-      sui_repo_ref:
-        description: "Branch / commit to test"
-        type: string
-        required: false
-        default: ''
 
 env:
   CARGO_TERM_COLOR: always
