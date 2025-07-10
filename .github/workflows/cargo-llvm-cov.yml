@@ -52,10 +52,10 @@ jobs:
       - name: Install Rust toolchain
         run: rustup show active-toolchain || rustup toolchain install
 
-      - name: Set Swap Space
-        uses: pierotofy/set-swap-space@master
-        with:
-          swap-size-gb: 256
+      #- name: Set Swap Space
+      #  uses: pierotofy/set-swap-space@master
+      #  with:
+      #    swap-size-gb: 256
         
       - name: Run code coverage for nextest
         run: RUSTFLAGS="-C debuginfo=0" SUI_SKIP_SIMTESTS=1 cargo llvm-cov --ignore-run-fail --lcov --output-path lcov.info nextest -vv -E '!package(sui-bridge) and !package(sui-bridge-indexer)'
